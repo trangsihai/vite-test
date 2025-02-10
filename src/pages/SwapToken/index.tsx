@@ -144,6 +144,9 @@ const SwapToken = () => {
     [tokenFrom, tokenTo, valueFrom, valueTo]
   );
 
+  console.log(1);
+  
+
   const handleRefreshPriceToken = useCallback(async () => {
     try {
       const result = await get();
