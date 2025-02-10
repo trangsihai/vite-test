@@ -158,6 +158,7 @@ const SwapToken = () => {
         content: "Refresh failed",
       });
     }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [handleReCalculate, messageApi]);
 
   useEffect(() => {
