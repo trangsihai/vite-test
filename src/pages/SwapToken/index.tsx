@@ -1,3 +1,4 @@
+/* eslint-disable react-hooks/exhaustive-deps */
 import { useCallback, useEffect, useState } from "react";
 import {
   Button,
@@ -158,7 +159,6 @@ const SwapToken = () => {
         content: "Refresh failed",
       });
     }
-  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [handleReCalculate, messageApi]);
 
   useEffect(() => {
@@ -170,7 +170,7 @@ const SwapToken = () => {
     }
 
     return () => clearInterval(interval);
-  }, [handleRefreshPriceToken, isAutoRefresh]);
+  }, [isAutoRefresh]);
 
   return (
     <>
