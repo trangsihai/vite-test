@@ -1,4 +1,4 @@
-import { useCallback, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import {
   Button,
   Card,
@@ -9,10 +9,12 @@ import {
   Space,
   Spin,
 } from "antd";
+import { LoadingOutlined, SwapOutlined } from "@ant-design/icons";
 import { useToken } from "../../hooks";
 import { Token } from "../../services/typings";
 import { delay, exchangeRate } from "../../utils";
 import TokenSelect from "../../components/TokenSelect";
+import Title from "antd/es/typography/Title";
 
 const SwapToken = () => {
   const [messageApi, contextHolder] = message.useMessage();
@@ -24,29 +26,24 @@ const SwapToken = () => {
   const [valueTo, setValueTo] = useState<number | null>(null);
 
   const [loadingExchange, setLoadingExchange] = useState<boolean>(false);
+  const [isAutoRefresh, toggleAutoRefesh] = useState<boolean>(false);
+
   const { data, loading, get } = useToken({
-    onError: () => {
+    onError: (m) => {
       messageApi.open({
         type: "error",
-        content: "Get token failed",
+        content: m ?? "Get token failed",
       });
     },
+    onSuccess: (t) => {
+      if (!tokenFrom) {
+        setTokenFrom(t[3]);
+      }
+      if (!tokenTo) {
+        setTokenTo(t[2]);
+      }
+    },
   });
-
-  const handleRefreshPriceToken = async () => {
-    try {
-      await get();
-      setValueFrom(null);
-      setValueTo(null);
-      setTokenFrom(undefined);
-      setTokenTo(undefined);
-      messageApi.open({
-        type: "success",
-        content: "Refresh success",
-      });
-      // eslint-disable-next-line no-empty
-    } catch {}
-  };
 
   const handleChangeValueFrom = useCallback(
     (v: number | null) => {
@@ -129,19 +126,72 @@ const SwapToken = () => {
     }
   }, [messageApi, tokenFrom, tokenTo, valueFrom, valueTo]);
 
+  const handleReCalculate = useCallback(
+    (result: Token[]) => {
+      if (tokenFrom && tokenTo && (valueFrom !== null || valueTo !== null)) {
+        const tokenFromNew = result?.find(
+          (v) => v.currency === tokenFrom.currency
+        );
+        const tokenToNew = result?.find((v) => v.currency === tokenTo.currency);
+        const rate = exchangeRate(tokenFromNew?.price, tokenToNew?.price);
+        if (valueFrom !== null) {
+          setValueTo(valueFrom * rate);
+        } else if (valueTo !== null) {
+          setValueFrom(valueTo / rate);
+        }
+      }
+    },
+    [tokenFrom, tokenTo, valueFrom, valueTo]
+  );
+
+  const handleRefreshPriceToken = useCallback(async () => {
+    try {
+      const result = await get();
+      handleReCalculate(result);
+      messageApi.open({
+        type: "success",
+        content: "Refresh success",
+      });
+    } catch {
+      messageApi.open({
+        type: "error",
+        content: "Refresh failed",
+      });
+    }
+  }, [handleReCalculate, messageApi]);
+
+  useEffect(() => {
+    let interval: ReturnType<typeof setInterval>;
+
+    if (isAutoRefresh) {
+      handleRefreshPriceToken();
+      interval = setInterval(handleRefreshPriceToken, 10000);
+    }
+
+    return () => clearInterval(interval);
+  }, [handleRefreshPriceToken, isAutoRefresh]);
+
   return (
     <>
-      <Card>
+      <Card title={<Title level={3}>Welcome to exchange price token</Title>}>
         <Spin spinning={loading || loadingExchange}>
           <Space style={{ minWidth: "400px" }} direction="vertical">
-            <Button
-              style={{ float: "left" }}
-              color="cyan"
-              variant="solid"
-              onClick={handleRefreshPriceToken}
-            >
-              Refresh Price Token
-            </Button>
+            <Space style={{ float: "left" }}>
+              <Button
+                color="cyan"
+                variant="solid"
+                onClick={handleRefreshPriceToken}
+              >
+                Refresh Price Token
+              </Button>
+              <Button
+                icon={isAutoRefresh ? <LoadingOutlined /> : null}
+                danger
+                onClick={() => toggleAutoRefesh((v) => !v)}
+              >
+                {isAutoRefresh ? "Stop" : "Auto Refresh (10s)"}
+              </Button>
+            </Space>
             <Row wrap={false} style={{ gap: "4px" }}>
               <Col span={10}>
                 <TokenSelect
@@ -156,7 +206,7 @@ const SwapToken = () => {
                   value={valueFrom}
                   onChange={handleChangeValueFrom}
                   style={{ width: "100%" }}
-                  placeholder="Please input price"
+                  placeholder="Please input amount token"
                 />
               </Col>
             </Row>
@@ -174,18 +224,24 @@ const SwapToken = () => {
                   value={valueTo}
                   onChange={handleChangeValueTo}
                   style={{ width: "100%" }}
-                  placeholder="Please input price"
+                  placeholder="Please input amount token"
                 />
               </Col>
             </Row>
-            <Space>
-              <Button color="primary" variant="outlined" onClick={handleSwap}>
+            <Row wrap={false} style={{ gap: "8px" }}>
+              <Button
+                color="primary"
+                variant="outlined"
+                onClick={handleSwap}
+                block
+                icon={<SwapOutlined />}
+              >
                 Swap Token
               </Button>
-              <Button type="primary" onClick={handleExchange}>
+              <Button type="primary" onClick={handleExchange} block>
                 Exchange Token
               </Button>
-            </Space>
+            </Row>
           </Space>
         </Spin>
       </Card>
